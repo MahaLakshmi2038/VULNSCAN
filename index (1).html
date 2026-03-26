@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VulnScan — Vulnerability Scanner</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;
+    --border:#30363d;--border2:#484f58;
+    --text:#e6edf3;--text2:#8b949e;--text3:#6e7681;
+    --red:#f85149;--redbg:#3d1a1a;--redtext:#ff7b72;
+    --amber:#e3b341;--amberbg:#3d2f0a;--ambertext:#e3b341;
+    --green:#3fb950;--greenbg:#122d1a;--greentext:#56d364;
+    --blue:#58a6ff;--bluebg:#0d2040;--bluetext:#79c0ff;
+    --purple:#a371f7;
+    --radius:8px;--radius-lg:12px;
+    font-family:'SF Mono','Fira Code','Cascadia Code',monospace;
+  }
+  body{background:var(--bg);color:var(--text);min-height:100vh}
+
+  /* NAV */
+  nav{display:flex;align-items:center;justify-content:space-between;
+      padding:14px 32px;border-bottom:1px solid var(--border);
+      background:var(--bg);position:sticky;top:0;z-index:100}
+  .nav-logo{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-0.3px;display:flex;align-items:center;gap:8px}
+  .logo-dot{width:8px;height:8px;border-radius:50%;background:var(--red)}
+  .nav-badge{font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--border2);color:var(--text2)}
+
+  /* MAIN */
+  main{max-width:860px;margin:0 auto;padding:40px 24px}
+  
+  /* HERO */
+  .hero{text-align:center;margin-bottom:40px}
+  .hero h1{font-size:28px;font-weight:700;letter-spacing:-1px;margin-bottom:8px;
+            background:linear-gradient(135deg,#e6edf3 0%,#8b949e 100%);
+            -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .hero p{font-size:14px;color:var(--text2);font-family:system-ui,sans-serif;max-width:480px;margin:0 auto}
+
+  /* INPUT PANEL */
+  .input-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:24px}
+  .input-row{display:flex;gap:8px;margin-bottom:12px}
+  .target-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
+                padding:10px 14px;font-size:13px;color:var(--text);font-family:inherit;outline:none}
+  .target-input:focus{border-color:var(--border2)}
+  .target-input::placeholder{color:var(--text3)}
+  .scan-type{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
+             padding:10px 12px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;outline:none}
+  .scan-btn{padding:10px 22px;background:var(--text);color:var(--bg);border:none;border-radius:var(--radius);
+            font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;transition:opacity 0.15s}
+  .scan-btn:hover{opacity:0.88}
+  .scan-btn:disabled{opacity:0.4;cursor:default}
+  .check-row{display:flex;flex-wrap:wrap;gap:8px}
+  .check-pill{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);
+              background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:4px 10px;
+              font-family:system-ui,sans-serif;cursor:pointer;user-select:none;transition:border-color 0.15s}
+  .check-pill:hover{border-color:var(--border2)}
+  .check-pill.active{border-color:var(--blue);color:var(--blue)}
+  .pill-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+  /* LOG */
+  .log-panel{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
+             padding:14px;font-size:12px;line-height:1.8;max-height:160px;overflow-y:auto;
+             margin-bottom:24px;display:none}
+  .log-panel::-webkit-scrollbar{width:4px}
+  .log-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+  .log-line{display:block}
+  .l-ok{color:var(--greentext)}
+  .l-err{color:var(--redtext)}
+  .l-warn{color:var(--ambertext)}
+  .l-info{color:var(--text2)}
+  .l-dim{color:var(--text3)}
+
+  /* METRICS */
+  .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:20px}
+  .metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+  .metric-label{font-size:10px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text3);
+                font-family:system-ui,sans-serif;margin-bottom:6px}
+  .metric-val{font-size:28px;font-weight:700}
+  .c-red{color:var(--redtext)}
+  .c-amber{color:var(--ambertext)}
+  .c-blue{color:var(--bluetext)}
+  .c-green{color:var(--greentext)}
+
+  /* CHARTS ROW */
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+  .chart-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+  .chart-title{font-size:10px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text3);
+               font-family:system-ui,sans-serif;margin-bottom:12px}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-family:system-ui,sans-serif;font-size:12px}
+  .bar-label{width:58px;color:var(--text2);text-align:right}
+  .bar-track{flex:1;height:14px;background:var(--bg3);border-radius:3px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:3px;transition:width 0.6s ease}
+  .bar-count{width:22px;color:var(--text);font-weight:600;font-size:11px}
+  .score-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:110px}
+  .score-num{font-size:52px;font-weight:700;letter-spacing:-2px}
+  .score-grade{font-size:12px;font-weight:600;margin-top:2px;font-family:system-ui,sans-serif;
+               text-transform:uppercase;letter-spacing:0.5px}
+  .score-sub{font-size:10px;color:var(--text3);font-family:system-ui,sans-serif;margin-top:2px}
+
+  /* PROGRESS */
+  .progress-wrap{margin-bottom:20px}
+  .progress-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);
+                 font-family:system-ui,sans-serif;margin-bottom:5px}
+  .progress-track{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+  .progress-fill{height:100%;border-radius:3px;transition:width 0.8s ease}
+
+  /* VULN LIST */
+  .section-head{font-size:10px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text3);
+                font-family:system-ui,sans-serif;margin-bottom:10px}
+  .vuln-list{display:flex;flex-direction:column;gap:6px;margin-bottom:24px}
+  .vuln-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .vuln-card:hover{border-color:var(--border2)}
+  .vuln-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+  .risk-badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;
+              text-transform:uppercase;letter-spacing:0.4px;font-family:system-ui,sans-serif;min-width:56px;text-align:center}
+  .badge-HIGH{background:var(--redbg);color:var(--redtext)}
+  .badge-MEDIUM{background:var(--amberbg);color:var(--ambertext)}
+  .badge-LOW{background:var(--greenbg);color:var(--greentext)}
+  .badge-INFO{background:var(--bluebg);color:var(--bluetext)}
+  .vuln-name{flex:1;font-size:13px;color:var(--text);font-family:system-ui,sans-serif}
+  .vuln-meta{font-size:11px;color:var(--text3);font-family:system-ui,sans-serif;margin-right:6px}
+  .chevron{font-size:10px;color:var(--text3);transition:transform 0.2s}
+  .chevron.open{transform:rotate(180deg)}
+  .vuln-detail{padding:0 14px;max-height:0;overflow:hidden;transition:max-height 0.35s ease,padding 0.2s}
+  .vuln-detail.open{max-height:320px;padding:0 14px 16px}
+  .detail-inner{border-top:1px solid var(--border);padding-top:12px}
+  .detail-grid{display:grid;grid-template-columns:100px 1fr;gap:7px 12px;font-size:12px;font-family:system-ui,sans-serif;margin-bottom:10px}
+  .dk{color:var(--text2)}
+  .dv{color:var(--text)}
+  .mitigation-box{background:var(--bg3);border-radius:6px;padding:10px 12px;font-size:12px;
+                  font-family:system-ui,sans-serif;color:var(--text2);line-height:1.6;border-left:3px solid var(--border2)}
+  .mitigation-box strong{color:var(--text)}
+  .cvss-bar{height:4px;border-radius:2px;margin-top:3px;background:var(--bg3)}
+  .cvss-fill{height:100%;border-radius:2px}
+
+  /* EXPORT */
+  .export-section{border-top:1px solid var(--border);padding-top:20px;margin-top:4px}
+  .export-title{font-size:10px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text3);
+                font-family:system-ui,sans-serif;margin-bottom:10px}
+  .export-row{display:flex;flex-wrap:wrap;gap:8px}
+  .export-btn{padding:8px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);
+              color:var(--text);font-size:12px;cursor:pointer;font-family:system-ui,sans-serif;transition:border-color 0.15s}
+  .export-btn:hover{border-color:var(--border2)}
+
+  /* EMPTY */
+  .empty{text-align:center;padding:60px 20px;color:var(--text3);font-family:system-ui,sans-serif;font-size:14px}
+  .empty-icon{font-size:36px;margin-bottom:12px;opacity:0.4}
+
+  /* FOOTER */
+  footer{text-align:center;padding:32px;font-size:11px;color:var(--text3);font-family:system-ui,sans-serif;
+         border-top:1px solid var(--border);margin-top:40px}
+
+  /* RESPONSIVE */
+  @media(max-width:600px){
+    .metrics{grid-template-columns:repeat(2,1fr)}
+    .charts{grid-template-columns:1fr}
+    .input-row{flex-direction:column}
+    nav{padding:12px 16px}
+    main{padding:24px 16px}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <div class="logo-dot"></div>
+    VulnScan
+  </div>
+  <span class="nav-badge">v1.0 · Educational Demo</span>
+</nav>
+
+<main>
+  <div class="hero">
+    <h1>Vulnerability Scanner</h1>
+    <p>Identify security weaknesses in your systems. Simulated checks for HTTP headers, open ports, SSL/TLS, and misconfigurations.</p>
+  </div>
+
+  <!-- INPUT -->
+  <div class="input-panel">
+    <div class="input-row">
+      <input class="target-input" id="targetInput" type="text" placeholder="https://example.com  or  192.168.1.1" value="https://example.com" />
+      <select class="scan-type" id="scanType">
+        <option value="full">Full Scan</option>
+        <option value="quick">Quick Scan</option>
+        <option value="ports">Ports Only</option>
+        <option value="headers">Headers Only</option>
+      </select>
+      <button class="scan-btn" id="scanBtn" onclick="startScan()">Run Scan</button>
+    </div>
+    <div class="check-row">
+      <div class="check-pill active" data-check="headers"><span class="pill-dot"></span>HTTP Headers</div>
+      <div class="check-pill active" data-check="ports"><span class="pill-dot"></span>Open Ports</div>
+      <div class="check-pill active" data-check="ssl"><span class="pill-dot"></span>SSL/TLS</div>
+      <div class="check-pill active" data-check="misconfig"><span class="pill-dot"></span>Misconfigurations</div>
+      <div class="check-pill active" data-check="disclosure"><span class="pill-dot"></span>Info Disclosure</div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="log-panel" id="logPanel"></div>
+
+  <!-- RESULTS -->
+  <div id="resultsArea">
+    <div class="empty">
+      <div class="empty-icon">&#9632;</div>
+      Enter a target URL or IP address and click Run Scan.<br>Results and risk report will appear here.
+    </div>
+  </div>
+</main>
+
+<footer>
+  VulnScan · Educational Vulnerability Scanner · Simulated checks for demonstration purposes only
+</footer>
+
+<script>
+const VULNS = [
+  {id:'h1',name:'Missing Content-Security-Policy Header',risk:'HIGH',category:'HTTP Headers',check:'headers',port:null,
+   desc:'No Content-Security-Policy header was detected. This leaves the application vulnerable to Cross-Site Scripting (XSS) and data injection attacks, since browsers have no policy to restrict which resources can be loaded.',
+   cve:'CWE-693',cvss:7.5,
+   fix:'Add header: Content-Security-Policy: default-src \'self\'; script-src \'self\'; object-src \'none\''},
+  {id:'h2',name:'X-Frame-Options Not Set',risk:'MEDIUM',category:'HTTP Headers',check:'headers',port:null,
+   desc:'The application does not set the X-Frame-Options header. This allows the page to be embedded inside an iframe on any malicious third-party site, enabling clickjacking attacks.',
+   cve:'CWE-1021',cvss:5.4,
+   fix:'Set header: X-Frame-Options: DENY (or SAMEORIGIN if self-embedding is required).'},
+  {id:'h3',name:'HSTS Not Enforced',risk:'HIGH',category:'SSL/TLS',check:'ssl',port:443,
+   desc:'The Strict-Transport-Security header is absent. Without HSTS, browsers may connect over HTTP, enabling SSL-stripping and man-in-the-middle attacks.',
+   cve:'CWE-295',cvss:8.1,
+   fix:'Add: Strict-Transport-Security: max-age=31536000; includeSubDomains; preload'},
+  {id:'p1',name:'Port 22 (SSH) Exposed to Public Internet',risk:'MEDIUM',category:'Open Ports',check:'ports',port:22,
+   desc:'SSH port 22 is reachable from the public internet. This exposes the server to brute-force, credential stuffing, and SSH exploit attacks.',
+   cve:'CWE-284',cvss:5.9,
+   fix:'Restrict port 22 to known IPs via firewall. Disable password auth and enforce SSH key-based login only.'},
+  {id:'p2',name:'Port 3306 (MySQL) Exposed',risk:'HIGH',category:'Open Ports',check:'ports',port:3306,
+   desc:'The database port 3306 is accessible externally. This is a critical misconfiguration — databases should never be directly reachable from the internet.',
+   cve:'CWE-200',cvss:9.1,
+   fix:'Immediately bind MySQL to 127.0.0.1. Block port 3306 at firewall. Use SSH tunnelling or a VPN for remote DB access.'},
+  {id:'p3',name:'Port 8080 (Alternate HTTP) Open',risk:'LOW',category:'Open Ports',check:'ports',port:8080,
+   desc:'An alternate HTTP port (8080) is open. This is commonly used by development servers and may bypass security controls applied to port 80.',
+   cve:'CWE-284',cvss:3.8,
+   fix:'If not required in production, close port 8080. Ensure any service on this port has the same security hardening as port 80.'},
+  {id:'s1',name:'TLS 1.0 / 1.1 Protocol Enabled',risk:'HIGH',category:'SSL/TLS',check:'ssl',port:443,
+   desc:'The server still supports deprecated TLS 1.0 and 1.1 protocols. These are vulnerable to BEAST, POODLE, and other downgrade attacks.',
+   cve:'CVE-2011-3389',cvss:7.4,
+   fix:'Disable TLS 1.0 and 1.1 in your web server config. Set minimum to TLS 1.2 and prefer TLS 1.3.'},
+  {id:'s2',name:'Weak Cipher Suite Detected',risk:'MEDIUM',category:'SSL/TLS',check:'ssl',port:443,
+   desc:'RC4 or DES cipher suites are enabled. These are cryptographically broken and can allow an attacker to decrypt traffic.',
+   cve:'CVE-2013-2566',cvss:5.9,
+   fix:'Remove RC4, DES, 3DES, and export cipher suites. Only enable AEAD ciphers (AES-GCM, ChaCha20-Poly1305).'},
+  {id:'m1',name:'Directory Listing Enabled',risk:'MEDIUM',category:'Misconfiguration',check:'misconfig',port:80,
+   desc:'The web server returns directory index pages when no index file is present. This exposes file structure, backup files, and potentially sensitive documents.',
+   cve:'CWE-548',cvss:5.3,
+   fix:'Apache: add "Options -Indexes" in httpd.conf. Nginx: add "autoindex off" in server block.'},
+  {id:'m2',name:'Default Error Pages Reveal Stack Traces',risk:'MEDIUM',category:'Misconfiguration',check:'misconfig',port:null,
+   desc:'Unhandled errors return verbose stack traces including framework version, file paths, and internal logic. This aids attacker reconnaissance.',
+   cve:'CWE-209',cvss:4.3,
+   fix:'Configure a custom error handler that returns generic error pages in production. Log verbose errors server-side only.'},
+  {id:'d1',name:'Server Version Disclosed in Response Header',risk:'LOW',category:'Info Disclosure',check:'disclosure',port:null,
+   desc:'The Server response header reveals the exact software and version (e.g., Apache/2.4.51). Attackers use this to target known CVEs for that version.',
+   cve:'CWE-200',cvss:3.1,
+   fix:'Apache: ServerTokens Prod. Nginx: server_tokens off. Remove or spoof the Server header at the load balancer.'},
+  {id:'d2',name:'robots.txt Exposes Admin Paths',risk:'INFO',category:'Info Disclosure',check:'disclosure',port:null,
+   desc:'The robots.txt file lists paths such as /admin, /internal, /backup. While not directly exploitable, it provides a roadmap for attackers.',
+   cve:'CWE-200',cvss:2.3,
+   fix:'Remove sensitive paths from robots.txt. Move admin panels to unpredictable URLs and protect with authentication.'},
+  {id:'d3',name:'Referrer-Policy Not Set',risk:'LOW',category:'HTTP Headers',check:'headers',port:null,
+   desc:'No Referrer-Policy header found. The browser may send full URLs (including query strings with tokens or IDs) to third-party servers via the Referer header.',
+   cve:'CWE-201',cvss:3.7,
+   fix:'Add: Referrer-Policy: strict-origin-when-cross-origin'},
+];
+
+const SCAN_SETS = {
+  full:     VULNS.map(v=>v.id),
+  quick:    ['h1','h2','h3','d1','d3'],
+  ports:    ['p1','p2','p3'],
+  headers:  ['h1','h2','d3','d1']
+};
+
+let scanResults = [];
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+function log(msg,type='info'){
+  let p=document.getElementById('logPanel');
+  p.style.display='block';
+  let s=document.createElement('span');
+  s.className='log-line l-'+type;
+  let t=new Date().toLocaleTimeString('en-GB',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  s.textContent='['+t+'] '+msg+'\n';
+  p.appendChild(s);
+  p.scrollTop=p.scrollHeight;
+}
+
+function cvssColor(v){
+  if(v>=9)return'#f85149';
+  if(v>=7)return'#ff7b72';
+  if(v>=4)return'#e3b341';
+  return'#3fb950';
+}
+
+function calcScore(results){
+  let d=results.reduce((s,v)=>s+(v.risk==='HIGH'?20:v.risk==='MEDIUM'?10:v.risk==='LOW'?4:1),0);
+  return Math.max(0,Math.min(100,100-d));
+}
+
+function gradeOf(s){
+  if(s>=85)return{label:'Secure',col:'#3fb950'};
+  if(s>=65)return{label:'Fair',col:'#e3b341'};
+  if(s>=40)return{label:'Poor',col:'#f85149'};
+  return{label:'Critical',col:'#f85149'};
+}
+
+async function startScan(){
+  let btn=document.getElementById('scanBtn');
+  let target=document.getElementById('targetInput').value.trim();
+  let type=document.getElementById('scanType').value;
+  if(!target){alert('Please enter a target URL or IP.');return;}
+
+  btn.disabled=true;btn.textContent='Scanning...';
+  document.getElementById('logPanel').innerHTML='';
+  document.getElementById('logPanel').style.display='block';
+  document.getElementById('resultsArea').innerHTML='<div class="empty"><div class="empty-icon">&#9632;</div>Scan in progress...</div>';
+
+  log('Initialising scan engine','info');
+  await sleep(300);
+  log('Target: '+target,'info');
+  log('Mode: '+type,'info');
+  await sleep(400);
+  log('Resolving host...','info');
+  await sleep(500);
+  log('Host reachable — running checks','ok');
+  await sleep(200);
+
+  let ids=SCAN_SETS[type];
+  let pool=VULNS.filter(v=>ids.includes(v.id));
+  let found=[];
+
+  for(let v of pool){
+    await sleep(220+Math.random()*280);
+    let detected=Math.random()>0.18;
+    if(detected){
+      found.push(v);
+      let pfx=v.risk==='HIGH'?'[CRIT] ':v.risk==='MEDIUM'?'[WARN] ':'[INFO] ';
+      let t=v.risk==='HIGH'?'err':v.risk==='MEDIUM'?'warn':'info';
+      log(pfx+v.name,t);
+    } else {
+      log('[ OK ]  '+v.name+' — passed','ok');
+    }
+  }
+  await sleep(400);
+  let icon=found.some(r=>r.risk==='HIGH')?'[CRIT]':'[WARN]';
+  log(icon+' Scan complete. '+found.length+' vulnerabilities detected.',found.some(r=>r.risk==='HIGH')?'err':'warn');
+
+  scanResults=found;
+  renderResults(found,target,type);
+  btn.disabled=false;btn.textContent='Run Scan';
+}
+
+function toggle(id){
+  let d=document.getElementById('det-'+id),c=document.getElementById('chev-'+id);
+  if(d.classList.contains('open')){d.classList.remove('open');c.classList.remove('open');}
+  else{d.classList.add('open');c.classList.add('open');}
+}
+
+function renderResults(results,target,type){
+  let cnt={HIGH:0,MEDIUM:0,LOW:0,INFO:0};
+  results.forEach(r=>cnt[r.risk]++);
+  let score=calcScore(results);
+  let grade=gradeOf(score);
+  let sorted=[...results].sort((a,b)=>{let o={HIGH:0,MEDIUM:1,LOW:2,INFO:3};return o[a.risk]-o[b.risk];});
+  let cats={};results.forEach(r=>{cats[r.category]=(cats[r.category]||0)+1;});
+  let maxCnt=Math.max(...Object.values(cnt),1);
+
+  let html=`
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">High / Critical</div><div class="metric-val c-red">${cnt.HIGH}</div></div>
+    <div class="metric"><div class="metric-label">Medium</div><div class="metric-val c-amber">${cnt.MEDIUM}</div></div>
+    <div class="metric"><div class="metric-label">Low / Info</div><div class="metric-val c-blue">${cnt.LOW+cnt.INFO}</div></div>
+    <div class="metric"><div class="metric-label">Total Found</div><div class="metric-val c-green">${results.length}</div></div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-box">
+      <div class="chart-title">Risk distribution</div>
+      ${['HIGH','MEDIUM','LOW','INFO'].map(r=>{
+        let pct=Math.round((cnt[r]/maxCnt)*100);
+        let col=r==='HIGH'?'#f85149':r==='MEDIUM'?'#e3b341':r==='LOW'?'#3fb950':'#58a6ff';
+        return `<div class="bar-row">
+          <div class="bar-label">${r.charAt(0)+r.slice(1).toLowerCase()}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
+          <div class="bar-count">${cnt[r]}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Security posture score</div>
+      <div class="score-center">
+        <div class="score-num" style="color:${grade.col}">${score}</div>
+        <div class="score-grade" style="color:${grade.col}">${grade.label}</div>
+        <div class="score-sub">out of 100</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-meta">
+      <span>Attack surface — ${results.length} findings across ${Object.keys(cats).length} categories</span>
+      <span>${target}</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" style="width:${Math.min(100,results.length*8)}%;background:${grade.col}"></div>
+    </div>
+  </div>
+
+  <div class="section-head">Vulnerability findings — click any row to expand</div>
+  <div class="vuln-list">
+    ${sorted.map(v=>`
+    <div class="vuln-card">
+      <div class="vuln-header" onclick="toggle('${v.id}')">
+        <span class="risk-badge badge-${v.risk}">${v.risk}</span>
+        <span class="vuln-name">${v.name}</span>
+        <span class="vuln-meta">${v.category}${v.port?' · Port '+v.port:''}</span>
+        <span class="chevron" id="chev-${v.id}">▾</span>
+      </div>
+      <div class="vuln-detail" id="det-${v.id}">
+        <div class="detail-inner">
+          <div class="detail-grid">
+            <span class="dk">Description</span><span class="dv">${v.desc}</span>
+            <span class="dk">Reference</span><span class="dv">${v.cve}</span>
+            <span class="dk">CVSS score</span>
+            <span class="dv">
+              ${v.cvss} / 10
+              <div class="cvss-bar"><div class="cvss-fill" style="width:${v.cvss*10}%;background:${cvssColor(v.cvss)}"></div></div>
+            </span>
+            ${v.port?`<span class="dk">Port</span><span class="dv">${v.port}/tcp</span>`:''}
+            <span class="dk">Category</span><span class="dv">${v.category}</span>
+          </div>
+          <div class="mitigation-box"><strong>Mitigation:</strong> ${v.fix}</div>
+        </div>
+      </div>
+    </div>`).join('')}
+  </div>
+
+  <div class="export-section">
+    <div class="export-title">Export report</div>
+    <div class="export-row">
+      <button class="export-btn" onclick="exportJSON()">&#8595; Download JSON</button>
+      <button class="export-btn" onclick="exportCSV()">&#8595; Download CSV</button>
+      <button class="export-btn" onclick="exportHTML()">&#8595; Download HTML Report</button>
+    </div>
+  </div>
+  `;
+  document.getElementById('resultsArea').innerHTML=html;
+}
+
+function exportJSON(){
+  let d={
+    scanTarget:document.getElementById('targetInput').value,
+    scanTime:new Date().toISOString(),
+    scanType:document.getElementById('scanType').value,
+    securityScore:calcScore(scanResults),
+    totalFindings:scanResults.length,
+    findings:scanResults.map(v=>({
+      name:v.name,risk:v.risk,category:v.category,port:v.port||null,
+      cve:v.cve,cvss:v.cvss,description:v.desc,mitigation:v.fix
+    }))
+  };
+  dl(JSON.stringify(d,null,2),'vulnscan-report.json','application/json');
+}
+
+function exportCSV(){
+  let rows=[['Name','Risk','Category','Port','CVSS','CVE','Description','Mitigation']];
+  scanResults.forEach(v=>rows.push([
+    '"'+v.name+'"',v.risk,v.category,v.port||'',v.cvss,v.cve,
+    '"'+v.desc.replace(/"/g,'""')+'"','"'+v.fix.replace(/"/g,'""')+'"'
+  ]));
+  dl(rows.map(r=>r.join(',')).join('\n'),'vulnscan-report.csv','text/csv');
+}
+
+function exportHTML(){
+  let target=document.getElementById('targetInput').value;
+  let score=calcScore(scanResults);
+  let grade=gradeOf(score);
+  let cnt={HIGH:0,MEDIUM:0,LOW:0,INFO:0};
+  scanResults.forEach(r=>cnt[r.risk]++);
+  let rows=scanResults.map(v=>`<tr>
+    <td>${v.name}</td><td>${v.risk}</td><td>${v.category}</td>
+    <td>${v.port||'—'}</td><td>${v.cvss}</td><td>${v.cve}</td>
+    <td>${v.desc}</td><td>${v.fix}</td>
+  </tr>`).join('');
+  let html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VulnScan Report</title>
+  <style>body{font-family:sans-serif;padding:32px;background:#0d1117;color:#e6edf3}
+  h1{font-size:24px;margin-bottom:4px}p{color:#8b949e;font-size:13px}
+  table{width:100%;border-collapse:collapse;margin-top:24px;font-size:12px}
+  th{background:#21262d;color:#8b949e;padding:8px 10px;text-align:left;border:1px solid #30363d}
+  td{padding:8px 10px;border:1px solid #30363d;vertical-align:top}
+  .HIGH{color:#f85149}.MEDIUM{color:#e3b341}.LOW{color:#3fb950}.INFO{color:#58a6ff}
+  </style></head><body>
+  <h1>VulnScan Security Report</h1>
+  <p>Target: ${target} | Date: ${new Date().toLocaleString()} | Score: ${score}/100 (${grade.label}) | Findings: ${scanResults.length}</p>
+  <p>High: ${cnt.HIGH} | Medium: ${cnt.MEDIUM} | Low: ${cnt.LOW} | Info: ${cnt.INFO}</p>
+  <table><thead><tr><th>Vulnerability</th><th>Risk</th><th>Category</th><th>Port</th><th>CVSS</th><th>CVE/CWE</th><th>Description</th><th>Mitigation</th></tr></thead>
+  <tbody>${rows}</tbody></table></body></html>`;
+  dl(html,'vulnscan-report.html','text/html');
+}
+
+function dl(content,filename,type){
+  let a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type}));
+  a.download=filename;a.click();
+}
+</script>
+</body>
+</html>
